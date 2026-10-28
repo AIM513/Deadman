@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Round Tracker</title>
+<style>
+:root{
+  --bg:#2b1408;--panel:#25201d;--text:#f2ebe3;--muted:#a39a90;
+  --live:#d6453d;--blank:#4a7fb5;--line:#3a332e;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){--bg:#f4efe8;--panel:#fff;--text:#231d19;--muted:#6f655b;--line:#d9d0c5;color-scheme:light}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Trebuchet MS",Verdana,sans-serif;min-height:100vh;display:flex;justify-content:center}
+main{width:100%;max-width:560px;padding:24px 16px}
+h1{font-size:1.6rem;margin:0 0 20px;font-weight:700}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.row{display:flex;gap:12px}
+label{display:block;flex:1;font-size:.95rem;color:var(--muted)}
+input{width:100%;margin-top:6px;padding:12px;font-size:1.3rem;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--text)}
+input:focus,button:focus-visible{outline:3px solid var(--text);outline-offset:2px}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;cursor:pointer;color:#fff}
+#start{width:100%;margin-top:16px;padding:14px;font-size:1.1rem;background:var(--text);color:var(--bg)}
+#game{display:none}
+.counts{display:flex;gap:12px;margin-bottom:16px}
+.count{flex:1;text-align:center;padding:18px 8px;border-radius:14px;color:#fff}
+.count.live{background:var(--live)}.count.blank{background:var(--blank)}
+.count b{display:block;font-size:4.5rem;line-height:1}
+.count span{font-size:1rem}
+.actions{display:flex;gap:12px}
+.actions button{flex:1;padding:22px 8px;font-size:1.2rem}
+#liveBtn{background:var(--live)}#blankBtn{background:var(--blank)}
+button:disabled{opacity:.35;cursor:not-allowed}
+.meta{display:flex;justify-content:space-between;align-items:center;margin-top:16px;color:var(--muted)}
+.meta button{background:transparent;color:var(--text);border:1px solid var(--line);padding:10px 14px;font-weight:600}
+#log{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:6px}
+#log li{padding:4px 10px;border-radius:999px;font-size:.85rem;color:#fff}
+#log li.live{background:var(--live)}#log li.blank{background:var(--blank)}
+#msg{text-align:center;font-size:1.2rem;margin:16px 0 0;min-height:1.5em;font-weight:700}
+.err{color:var(--live);margin:10px 0 0;min-height:1.2em}
+</style>
+</head>
+<body>
+<main>
+  <h1>Round Tracker</h1>
+
+  <section id="setup" class="panel">
+    <div class="row">
+      <label>Live rounds<input id="liveIn" type="number" min="0" value="3" inputmode="numeric"></label>
+      <label>Blank rounds<input id="blankIn" type="number" min="0" value="3" inputmode="numeric"></label>
+    </div>
+    <p class="err" id="err"></p>
+    <button id="start">Start game</button>
+  </section>
+
+  <section id="game">
+    <div class="counts">
+      <div class="count live"><b id="liveCount">0</b><span>Live left</span></div>
+      <div class="count blank"><b id="blankCount">0</b><span>Blank left</span></div>
+    </div>
+    <div class="actions">
+      <button id="liveBtn">Live</button>
+      <button id="blankBtn">Blank</button>
+    </div>
+    <p id="msg"></p>
+    <div class="meta">
+      <span id="round"></span>
+      <span><button id="undo">Undo</button> <button id="reset">New game</button></span>
+    </div>
+    <ul id="log"></ul>
+  </section>
+</main>
+
+<script>
+(function(){
+  var live=0,blank=0,history=[],startLive=0,startBlank=0;
+  var $=function(id){return document.getElementById(id)};
+
+  function render(){
+    $('liveCount').textContent=live;
+    $('blankCount').textContent=blank;
+    $('liveBtn').disabled=live<=0;
+    $('blankBtn').disabled=blank<=0;
+    var total=startLive+startBlank, used=history.length;
+    $('round').textContent='Round '+Math.min(used+1,total)+' of '+total;
+    $('undo').disabled=used===0;
+    $('msg').textContent=(live===0&&blank===0)?'All rounds used. Game over.':'';
+    var log=$('log');log.innerHTML='';
+    history.forEach(function(h,i){
+      var li=document.createElement('li');
+      li.className=h;li.textContent=(i+1)+': '+(h==='live'?'Live':'Blank');
+      log.appendChild(li);
+    });
+  }
+
+  $('start').onclick=function(){
+    var l=parseInt($('liveIn').value,10), b=parseInt($('blankIn').value,10);
+    if(isNaN(l)||isNaN(b)||l<0||b<0||l+b===0){
+      $('err').textContent='Enter 0 or more for each, with at least one round in total.';
+      return;
+    }
+    $('err').textContent='';
+    live=startLive=l;blank=startBlank=b;history=[];
+    $('setup').style.display='none';$('game').style.display='block';
+    render();
+  };
+  $('liveBtn').onclick=function(){if(live>0){live--;history.push('live');render();}};
+  $('blankBtn').onclick=function(){if(blank>0){blank--;history.push('blank');render();}};
+  $('undo').onclick=function(){
+    var last=history.pop();
+    if(last==='live')live++;else if(last==='blank')blank++;
+    render();
+  };
+  $('reset').onclick=function(){
+    $('game').style.display='none';$('setup').style.display='block';
+  };
+})();
+</script>
+</body>
+</html>
